@@ -59,21 +59,22 @@ func (c *chunker) send(wr io.Writer) error {
 	// Try to make as few writes as possible to reduce network overhead
 	// Whenever we encounter a message that is bigger than max chunk size we need
 	// to write and make a new chunk
+	// max chunk size should not bigger than mtu(ie, 1500)
 	start := 0
 	end := 0
 
 	for _, size := range c.sizes {
-		if size <= 0xffff {
+		if size <= 0x04b0 {
 			binary.BigEndian.PutUint16(c.buf[end:], uint16(size))
 			// Size + messge + end of message marker
 			end += 2 + size + 2
 		} else {
 			// Could be a message that ranges over multiple chunks
-			for size > 0xffff {
-				c.buf[end] = 0xff
-				c.buf[end+1] = 0xff
+			for size > 0x04b0 {
+				c.buf[end] = 0x04
+				c.buf[end+1] = 0xb0
 				// Size + messge
-				end += 2 + 0xffff
+				end += 2 + 0x04b0
 
 				_, err := wr.Write(c.buf[start:end])
 				if err != nil {
@@ -83,7 +84,7 @@ func (c *chunker) send(wr io.Writer) error {
 				// of the chunk
 				end -= 2
 				start = end
-				size -= 0xffff
+				size -= 0x04b0
 			}
 			binary.BigEndian.PutUint16(c.buf[end:], uint16(size))
 			// Size + messge + end of message marker
